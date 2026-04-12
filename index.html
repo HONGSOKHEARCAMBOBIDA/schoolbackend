@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Subject Updates</title>
+</head>
+<body>
+  <h1>Real-time Subject Updates</h1>
+  <ul id="updates"></ul>
+
+  <script>
+    // Connect to the SSE endpoint
+    const evtSource = new EventSource("/subjects/stream");
+
+    evtSource.addEventListener("subject_update", function(e) {
+        console.log("Real-time update: ", e.data);
+        
+        // Show message in the page
+        const ul = document.getElementById("updates");
+        const li = document.createElement("li");
+        li.textContent = e.data;
+        ul.appendChild(li);
+
+        // Optional alert
+        // alert(e.data);
+    });
+
+    // Handle errors
+    evtSource.onerror = function() {
+        console.error("EventSource failed.");
+        evtSource.close();
+    };
+  </script>
+</body>
+</html>
