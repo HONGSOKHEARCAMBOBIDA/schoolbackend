@@ -14,7 +14,18 @@ func CreateClassTeacher(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	var existing models.ClassTeacher
+	err := config.DB.
+		Where("class_id = ? AND academic_year_id = ? AND is_active = ?", input.ClassID, input.AcademicYearID, 1).
+		First(&existing).Error
 
+	if err == nil {
+		// ❗ Already exists
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "This class already has a teacher assigned for this academic year",
+		})
+		return
+	}
 	newClassTeacher := models.ClassTeacher{
 		ClassID:        input.ClassID,
 		AcademicYearID: input.AcademicYearID,
