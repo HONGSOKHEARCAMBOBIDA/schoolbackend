@@ -70,11 +70,12 @@ func SetupRoutes(r *gin.Engine) {
 		// Student
 		auth.GET("/getstudent", middleware.PermissionMiddleware("view-student"), controllers.Getstudent)
 		auth.POST("/student", middleware.PermissionMiddleware("add-student"), controllers.SaveStudent)
-		auth.PUT("/student", middleware.PermissionMiddleware("edit-student"), controllers.SaveStudent)
+		auth.PUT("/student/:id", middleware.PermissionMiddleware("edit-student"), controllers.SaveStudent)
 		auth.GET("/viewstudent", middleware.PermissionMiddleware("view-student"), controllers.HandlStudent)
 		auth.PUT("/changestatusstudent/:id", middleware.PermissionMiddleware("change-status-student"), controllers.HandlStudent)
 		auth.PUT("/Suspendstudies/:id", middleware.PermissionMiddleware("change-status-student"), controllers.SuspendStudies)
 		auth.PUT("/changeschool/:id", middleware.PermissionMiddleware("change-status-student"), controllers.ChangeSchool)
+		auth.PUT("/comeback/:id", middleware.PermissionMiddleware("change-status-student"), controllers.Comeback)
 
 		// StudentClass
 		auth.POST("/assignstudenttoclass", middleware.PermissionMiddleware("assign-student-to-class"), controllers.CreateStudentClass)

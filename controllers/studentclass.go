@@ -17,15 +17,15 @@ func CreateStudentClass(c *gin.Context) {
 	}
 
 	// Step 1: Find the last StudentClass for this student
-	var last models.StudentClass
-	if err := config.DB.
-		Where("student_id = ?", input.StudentID).
-		Order("id desc").
-		First(&last).Error; err == nil {
-		// Step 2: Update status to 0 if found
-		last.IsActive = 0
-		config.DB.Save(&last)
-	}
+	// var last models.StudentClass
+	// if err := config.DB.
+	// 	Where("student_id = ?", input.StudentID).
+	// 	Order("id desc").
+	// 	First(&last).Error; err == nil {
+	// 	// Step 2: Update status to 0 if found
+	// 	last.IsActive = 0
+	// 	config.DB.Save(&last)
+	// }
 
 	// Step 3: Create new record with status = 1
 	newStudentClass := models.StudentClass{
@@ -73,6 +73,7 @@ func UpdateStudentClass(c *gin.Context) {
 	}
 
 	studentClass.ClassID = input.ClassID
+	studentClass.AcademicYearID = input.AcademicYearID
 
 	if err := tx.Save(&studentClass).Error; err != nil {
 		tx.Rollback()

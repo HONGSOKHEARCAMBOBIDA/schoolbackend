@@ -7,7 +7,7 @@ type StudentDetail struct {
 	Dob                  string          `json:"dob"`
 	Gender               int             `josn:"gender"`
 	Phone                string          `json:"phone"`
-	IsActive             int             `json:"is_active"`
+	IsActive             int             `json:"is_active" gorm:"column:is_active"`
 	IsPoor               int             `json:"is_poor" gorm:"column:is_poor"`
 	Isdisability         int             `json:"is_disability" gorm:"column:is_disability"`
 	MotherName           string          `json:"mother_name"`
@@ -28,4 +28,6 @@ type StudentDetail struct {
 	AcademicName         string          `json:"academic_name"`
 	Disability           []DisabilityRes `json:"disabilities" gorm:"-"`
 	StudentClassIsActive int             `json:"student_class_is_active"`
+	ClassID              int             `json:"class_id"`
+	AcademicYearID       int             `json:"academic_year_id"`
 }

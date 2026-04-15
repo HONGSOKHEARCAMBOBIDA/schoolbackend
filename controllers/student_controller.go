@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"schoolbackend/config"
+	"schoolbackend/helper"
 	"schoolbackend/models"
 	"schoolbackend/utils"
 	"strconv"
@@ -257,6 +258,8 @@ func HandlStudent(c *gin.Context) {
 			students.mothe_occupation,
 			students.fother_occupation,
 			sc.id AS student_class_id,
+			sc.class_id AS class_id,
+			sc.academic_year_id AS academic_year_id,
 			sc.is_active AS student_class_is_active,
 			a.year_name AS academic_name,
 			students.village_id, villages.name AS village_name,
@@ -341,6 +344,10 @@ func HandlStudent(c *gin.Context) {
 			return
 		}
 
+		for i := range students {
+			students[i].Dob = helper.FormatDate(students[i].Dob)
+		}
+
 		c.JSON(http.StatusOK, gin.H{"students": students})
 
 	} else if method == http.MethodPut {
@@ -352,7 +359,7 @@ func HandlStudent(c *gin.Context) {
 			return
 		}
 		var last models.StudentClass
-		if err := config.DB.Where("student_id = ? AND is_active =1", id).Order("id desc").First(&last).Error; err == nil {
+		if err := config.DB.Where("id = ?", id).First(&last).Error; err == nil {
 			last.IsActive = 4
 			config.DB.Save(&last)
 		}
@@ -373,8 +380,7 @@ func SuspendStudies(c *gin.Context) {
 
 	var last models.StudentClass
 	err = config.DB.
-		Where("student_id = ? AND is_active = 1", id).
-		Order("id DESC").
+		Where("id = ?", id).
 		First(&last).Error
 
 	if err != nil {
@@ -406,8 +412,7 @@ func ChangeSchool(c *gin.Context) {
 
 	var last models.StudentClass
 	err = config.DB.
-		Where("student_id = ? AND is_active = 1", id).
-		Order("id DESC").
+		Where("id = ?", id).
 		First(&last).Error
 
 	if err != nil {
@@ -422,6 +427,38 @@ func ChangeSchool(c *gin.Context) {
 
 	// Found -> update
 	last.IsActive = 3 // 2 = Suspended
+	if err := config.DB.Save(&last).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update status"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "student suspended successfully"})
+}
+func Comeback(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid student id"})
+		return
+	}
+
+	var last models.StudentClass
+	err = config.DB.
+		Where("id = ?", id).
+		First(&last).Error
+
+	if err != nil {
+		// Not found or DB error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "no active class found for this student"})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	// Found -> update
+	last.IsActive = 1 // 2 = Suspended
 	if err := config.DB.Save(&last).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update status"})
 		return

@@ -106,16 +106,16 @@ func Login(c *gin.Context) {
 	}
 
 	// Send Telegram notification (async)
-	go func() {
-		telegramBotToken := TelegramBotTokenLogin // replace with your bot token
-		userChatID := TelegramChatIDLogin         // make sure your User model has TelegramChatID field
-		msg := fmt.Sprintf("✅ អ្នកប្រើប្រាស់ %s (លេខទូរសព្ទ: %s) បានចូលដោយជោគជ័យ.", user.Name, user.Phone)
+	// go func() {
+	// 	telegramBotToken := TelegramBotTokenLogin // replace with your bot token
+	// 	userChatID := TelegramChatIDLogin         // make sure your User model has TelegramChatID field
+	// 	msg := fmt.Sprintf("✅ អ្នកប្រើប្រាស់ %s (លេខទូរសព្ទ: %s) បានចូលដោយជោគជ័យ.", user.Name, user.Phone)
 
-		err := SendTelegramMessage(telegramBotToken, userChatID, msg)
-		if err != nil {
-			fmt.Println("Telegram message failed:", err)
-		}
-	}()
+	// 	err := SendTelegramMessage(telegramBotToken, userChatID, msg)
+	// 	if err != nil {
+	// 		fmt.Println("Telegram message failed:", err)
+	// 	}
+	// }()
 
 	// Send response to client
 	c.JSON(http.StatusOK, gin.H{
