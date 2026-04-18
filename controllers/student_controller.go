@@ -167,6 +167,7 @@ func SaveStudent(c *gin.Context) {
 		student.MotheOccupation = input.MotheOccupation
 		student.FotherOccupation = input.FotherOccupation
 		student.Isdisability = input.Isdisability
+		student.IsPoor = input.IsPoor
 
 		if err := tx.Save(&student).Error; err != nil {
 			tx.Rollback()
@@ -208,6 +209,22 @@ func HandlStudent(c *gin.Context) {
 	if method == http.MethodGet {
 		var students []models.StudentDetail
 
+		// ---- pagination ----
+		pageStr := c.DefaultQuery("page", "1")
+		limitStr := c.DefaultQuery("limit", "10")
+
+		page, _ := strconv.Atoi(pageStr)
+		limit, _ := strconv.Atoi(limitStr)
+
+		if page < 1 {
+			page = 1
+		}
+		if limit < 1 {
+			limit = 10
+		}
+
+		offset := (page - 1) * limit
+
 		// ---- get current user id ----
 		userIDInterface, exists := c.Get("user_id")
 		if !exists {
@@ -221,7 +238,7 @@ func HandlStudent(c *gin.Context) {
 		}
 		userID := int(userIDFloat)
 
-		// ---- check if user manages classes ----
+		// ---- check role ----
 		var currenUser struct {
 			ManageClass int
 		}
@@ -233,6 +250,7 @@ func HandlStudent(c *gin.Context) {
 			return
 		}
 
+		// ---- query params ----
 		academicYearID := c.Query("academic_year_id")
 		classID := c.Query("class_id")
 		poorID := c.Query("is_poor")
@@ -242,7 +260,7 @@ func HandlStudent(c *gin.Context) {
 		chnagescool := c.Query("changeschool")
 		stopstudy := c.Query("stopstudy")
 
-		// ---- declare db ----
+		// ---- base query ----
 		db := config.DB.Table("students").Select(`
 			students.id,
 			students.code,
@@ -258,8 +276,8 @@ func HandlStudent(c *gin.Context) {
 			students.mothe_occupation,
 			students.fother_occupation,
 			sc.id AS student_class_id,
-			sc.class_id AS class_id,
-			sc.academic_year_id AS academic_year_id,
+			sc.class_id,
+			sc.academic_year_id,
 			sc.is_active AS student_class_is_active,
 			a.year_name AS academic_name,
 			students.village_id, villages.name AS village_name,
@@ -274,90 +292,99 @@ func HandlStudent(c *gin.Context) {
 			Joins("LEFT JOIN districts ON districts.id = communes.district_id").
 			Joins("LEFT JOIN provinces ON provinces.id = districts.province_id").
 			Joins("INNER JOIN student_classes sc ON sc.student_id = students.id").
-			Joins("INNER JOIN academic_years a ON a.id = sc.academic_year_id ").
+			Joins("INNER JOIN academic_years a ON a.id = sc.academic_year_id").
 			Joins("INNER JOIN classes c ON c.id = sc.class_id").
-			Joins("INNER JOIN class_teachers ct ON ct.class_id = sc.class_id AND ct.academic_year_id = sc.academic_year_id AND ct.is_active =1").
+			Joins("INNER JOIN class_teachers ct ON ct.class_id = sc.class_id AND ct.academic_year_id = sc.academic_year_id AND ct.is_active = 1").
 			Joins("LEFT JOIN users u ON u.id = ct.teacher_id")
 
-		// ---- filter by academic_year_id if given ----
+		// ---- filters ----
 		if academicYearID != "" {
 			db = db.Where("sc.academic_year_id = ?", academicYearID)
 		}
-
-		// ---- filter by class_id if given ----
 		if classID != "" {
 			db = db.Where("sc.class_id = ?", classID)
 		}
 		if poorID != "" {
-			db = db.Where("students.is_poor =?", poorID)
+			db = db.Where("students.is_poor = ?", poorID)
 		}
 		if disabilityID != "" {
-			db = db.Where("students.is_disability", disabilityID)
+			db = db.Where("students.is_disability = ?", disabilityID) // FIXED
 		}
 		if suspendStudy != "" {
-			db = db.Where("sc.is_active =?", suspendStudy)
+			db = db.Where("sc.is_active = ?", suspendStudy)
 		}
 		if chnagescool != "" {
-			db = db.Where("sc.is_active =?", chnagescool)
+			db = db.Where("sc.is_active = ?", chnagescool)
 		}
 		if stopstudy != "" {
-			db = db.Where("sc.is_active =?", stopstudy)
+			db = db.Where("sc.is_active = ?", stopstudy)
 		}
-
-		switch currenUser.ManageClass {
-		case 1:
-			// teacher → restrict to his assigned classes
-			db = db.Where("sc.class_id IN (?)",
-				config.DB.Table("class_teachers as ct").
-					Select("ct.class_id").
-					Where("ct.teacher_id =?", userID),
-			)
-
-		case 2:
-			// admin → no extra restriction
-
-		default:
-			c.JSON(http.StatusForbidden, gin.H{"error": "You do not have permission to view students"})
-			return
-		}
-
-		// ---- optional filter by name ----
 		if namekh != "" {
 			db = db.Where("students.name LIKE ?", "%"+namekh+"%")
 		}
 
-		// ---- run query ----
-		result := db.Scan(&students)
-		for i, student := range students {
-			var disabilities []models.DisabilityRes
-			config.DB.Raw(`
-		SELECT d.id, d.name
-		FROM student_disabilities sd
-		JOIN disability_res d ON d.id = sd.disability_id
-		WHERE sd.student_id = ?
-	`, student.ID).Scan(&disabilities)
-
-			students[i].Disability = disabilities
-		}
-		if result.Error != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch students"})
+		// ---- permission ----
+		switch currenUser.ManageClass {
+		case 1:
+			db = db.Where("sc.class_id IN (?)",
+				config.DB.Table("class_teachers as ct").
+					Select("ct.class_id").
+					Where("ct.teacher_id = ?", userID),
+			)
+		case 2:
+			// admin → no filter
+		default:
+			c.JSON(http.StatusForbidden, gin.H{"error": "No permission"})
 			return
 		}
 
-		for i := range students {
+		// ---- count total ----
+		var total int64
+		if err := db.Count(&total).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "count failed"})
+			return
+		}
+
+		// ---- get data with pagination ----
+		result := db.Limit(limit).Offset(offset).Scan(&students)
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "fetch failed"})
+			return
+		}
+
+		// ---- load disabilities ----
+		for i, student := range students {
+			var disabilities []models.DisabilityRes
+			config.DB.Raw(`
+				SELECT d.id, d.name
+				FROM student_disabilities sd
+				JOIN disability_res d ON d.id = sd.disability_id
+				WHERE sd.student_id = ?
+			`, student.ID).Scan(&disabilities)
+
+			students[i].Disability = disabilities
 			students[i].Dob = helper.FormatDate(students[i].Dob)
 		}
 
-		c.JSON(http.StatusOK, gin.H{"students": students})
+		// ---- response ----
+		c.JSON(http.StatusOK, gin.H{
+			"students": students,
+			"pagination": gin.H{
+				"page":  page,
+				"limit": limit,
+				"total": total,
+			},
+		})
 
 	} else if method == http.MethodPut {
-		// ----- TOGGLE STATUS -----
+		// ---- toggle status ----
 		idParam := c.Param("id")
 		id, err := strconv.Atoi(idParam)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
 			return
 		}
+
 		var last models.StudentClass
 		if err := config.DB.Where("id = ?", id).First(&last).Error; err == nil {
 			last.IsActive = 4
@@ -367,7 +394,7 @@ func HandlStudent(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "Status updated successfully"})
 
 	} else {
-		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "Only GET and PUT are allowed"})
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "Only GET and PUT allowed"})
 	}
 }
 func SuspendStudies(c *gin.Context) {
@@ -523,7 +550,7 @@ func Getstudent(c *gin.Context) {
 			Joins("LEFT JOIN districts ON districts.id = communes.district_id").
 			Joins("LEFT JOIN provinces ON provinces.id = districts.province_id").
 			Joins("LEFT JOIN student_classes sc ON sc.student_id = students.id").
-			Where("sc.id IS NULL OR sc.is_active IN (2,3,4)")
+			Where("sc.id IS NULL OR sc.is_active IN (2,3,4)").Group("students.id")
 
 		// ---- optional filter by name ----
 		if namekh != "" {

@@ -26,7 +26,7 @@ type StudentInput struct {
 	VillageID        int    `json:"village_id"`
 	IsActive         int    `json:"is_active"`
 	IsPoor           int    `json:"is_poor"`
-	Isdisability     int    `json:"is_disability"`
+	Isdisability     int    `json:"is_disability" gorm:"column:is_disability"`
 	MotherName       string `json:"mother_name"`
 	FatherName       string `json:"father_name"`
 	MotheOccupation  string `json:"mother_occupation"`
