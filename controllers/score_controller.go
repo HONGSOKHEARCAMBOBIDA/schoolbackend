@@ -254,7 +254,7 @@ func GetAverageScore(c *gin.Context) {
 		db = db.Where("scores.type_exam_id =?", type_exam_id)
 	}
 
-	db = db.Group("students.id, students.name")
+	db = db.Group("students.id, students.name, classes.name, students.gender")
 
 	if err := db.Scan(&results).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
