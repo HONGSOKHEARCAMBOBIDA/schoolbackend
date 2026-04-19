@@ -549,7 +549,16 @@ func Getstudent(c *gin.Context) {
 			Joins("LEFT JOIN communes ON communes.id = villages.commune_id").
 			Joins("LEFT JOIN districts ON districts.id = communes.district_id").
 			Joins("LEFT JOIN provinces ON provinces.id = districts.province_id").
-			Joins("LEFT JOIN student_classes sc ON sc.student_id = students.id").
+			Joins(`
+		LEFT JOIN student_classes sc 
+		ON sc.id = (
+			SELECT sc2.id 
+			FROM student_classes sc2 
+			WHERE sc2.student_id = students.id 
+			ORDER BY sc2.id DESC 
+			LIMIT 1
+		)
+	`).
 			Where("sc.id IS NULL OR sc.is_active IN (2,3,4)").Group("students.id")
 
 		// ---- optional filter by name ----
