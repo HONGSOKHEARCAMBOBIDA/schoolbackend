@@ -1,0 +1,35 @@
+# Go
+bin/
+pkg/
+*.exe
+*.test
+*.out
+*.png
+*.jpg
+*.jpeg
+
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temp
+tmp/
+temp/
+
+# Vendor (IMPORTANT)
+vendor/
+
+# Node (if any)
+node_modules/

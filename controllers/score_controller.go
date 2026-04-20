@@ -85,7 +85,7 @@ func CreateScore(c *gin.Context) {
 		return
 	}
 	if err := input.Validate(); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ពិន្ទុមិនត្រូវតិចជាង០នឹងមិនត្រូវធំជាង10"})
 		return
 	}
 

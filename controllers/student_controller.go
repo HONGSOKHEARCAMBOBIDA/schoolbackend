@@ -326,10 +326,10 @@ func HandlStudent(c *gin.Context) {
 		// ---- permission ----
 		switch currenUser.ManageClass {
 		case 1:
-			db = db.Where("sc.class_id IN (?)",
+			db = db.Where("(sc.class_id, sc.academic_year_id) IN (?)",
 				config.DB.Table("class_teachers as ct").
-					Select("ct.class_id").
-					Where("ct.teacher_id = ?", userID),
+					Select("ct.class_id, ct.academic_year_id").
+					Where("ct.teacher_id = ? AND ct.is_active = ?", userID, 1),
 			)
 		case 2:
 			// admin → no filter
@@ -557,7 +557,7 @@ func Getstudent(c *gin.Context) {
 			WHERE sc2.student_id = students.id 
 			ORDER BY sc2.id DESC 
 			LIMIT 1
-		)
+		
 	`).
 			Where("sc.id IS NULL OR sc.is_active IN (2,3,4)").Group("students.id")
 

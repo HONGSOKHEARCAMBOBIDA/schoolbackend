@@ -12,7 +12,7 @@ type ClassInfo struct {
 
 type UserDetail struct {
 	ID             uint      `json:"id" gorm:"primarykey"`
-	Name           string    `json:"name"`
+	Name           string    `json:"name" gorm:"column:name"`
 	Phone          string    `json:"phone"`
 	Password       string    `json:"-"` // hide password
 	IDCardNumber   string    `json:"id_card_number"`

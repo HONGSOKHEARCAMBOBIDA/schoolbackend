@@ -29,7 +29,7 @@ type ScoreInput struct {
 func (s *ScoreInput) Validate() error {
 	for i, m := range s.Mark {
 		if m.LessThan(decimal.NewFromInt(0)) || m.GreaterThan(decimal.NewFromInt(10)) {
-			return fmt.Errorf("mark at index %d is invalid: %s (must be between 0 and 10)", i, m.String())
+			return fmt.Errorf("ពិន្ទុមិនត្រូវតិចជាង០នឹងមិនត្រូវធំជាង10", i, m.String())
 		}
 	}
 	return nil

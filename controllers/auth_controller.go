@@ -124,6 +124,7 @@ func Login(c *gin.Context) {
 			"id":        user.ID,
 			"name":      user.Name,
 			"phone":     user.Phone,
+			"profile":   user.Image,
 			"role_id":   user.RoleID,
 			"role_name": role.Name,
 		},
@@ -377,9 +378,9 @@ func GetUsers(c *gin.Context) {
 	// --- Step 1: Get logged-in user ID from context ---
 
 	// --- Step 2: Pagination & filters ---
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	offset := (page - 1) * limit
+	// page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	// limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	// offset := (page - 1) * limit
 	nameKh := c.Query("name_kh")
 	roleID := c.Query("role_id")
 
@@ -409,8 +410,8 @@ func GetUsers(c *gin.Context) {
 		db = db.Where("users.role_id = ?", roleID)
 	}
 
-	// --- Step 5: Pagination ---
-	db = db.Limit(limit).Offset(offset)
+	// // --- Step 5: Pagination ---
+	// db = db.Limit(limit).Offset(offset)
 
 	// --- Step 6: Execute ---
 	result := db.Scan(&users)
