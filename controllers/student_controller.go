@@ -556,7 +556,7 @@ func Getstudent(c *gin.Context) {
 			FROM student_classes sc2 
 			WHERE sc2.student_id = students.id 
 			ORDER BY sc2.id DESC 
-			LIMIT 1
+			LIMIT 1)
 		
 	`).
 			Where("sc.id IS NULL OR sc.is_active IN (2,3,4)").Group("students.id")

@@ -15,7 +15,6 @@ import (
 )
 
 func UpdateScore(c *gin.Context) {
-
 	// Get score ID from URL
 	scoreID := c.Param("id")
 	var score models.Scores
@@ -30,8 +29,17 @@ func UpdateScore(c *gin.Context) {
 		ExamDate string          `json:"exam_date"`
 	}
 
+	// ✅ Bind JSON first
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// ✅ Validate mark (0 - 10)
+	if input.Mark.LessThan(decimal.NewFromInt(0)) || input.Mark.GreaterThan(decimal.NewFromInt(10)) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "ពិន្ទុមិនត្រូវតិចជាង 0 និងមិនត្រូវធំជាង 10",
+		})
 		return
 	}
 
