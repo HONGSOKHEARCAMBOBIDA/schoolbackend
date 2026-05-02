@@ -44,6 +44,7 @@ func SetupRoutes(r *gin.Engine) {
 		auth.GET("/user/:id", middleware.PermissionMiddleware("view-user"), controllers.GetUser)
 		auth.PUT("/changestatususer/:id", middleware.PermissionMiddleware("change-status-user"), controllers.ChangeStatusUser)
 		auth.PUT("/user/:id", middleware.PermissionMiddleware("edit-user"), controllers.UpdateUser)
+		auth.PUT("/changepassword/:id", middleware.PermissionMiddleware("edit-user"), controllers.ChangePassword)
 
 		// Class
 		auth.POST("/class", middleware.PermissionMiddleware("add-class"), controllers.SaveClass)

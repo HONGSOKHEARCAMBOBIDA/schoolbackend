@@ -301,38 +301,30 @@ func SendOTP(c *gin.Context) {
 
 // ChangePassword verifies OTP and updates password
 func ChangePassword(c *gin.Context) {
-	var input struct {
-		Phone       string `json:"phone"`
-		NewPassword string `json:"new_password"`
-		OTP         string `json:"otp"`
+	idparam := c.Param("id")
+	id, err := strconv.Atoi(idparam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
 	}
 
+	var input struct {
+		NewPassword string `json:"new_password"`
+	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	store, exists := otpMap[input.Phone]
-	if !exists || store.ExpiresAt.Before(time.Now()) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "OTP expired or not found"})
-		return
-	}
-
-	if store.Code != input.OTP {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid OTP"})
 		return
 	}
 
 	hashed := hashPassword(input.NewPassword)
 
 	if err := config.DB.Model(&models.User{}).
-		Where("phone = ?", input.Phone).
+		Where("id = ?", id).
 		Update("password", hashed).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
 		return
 	}
 
-	delete(otpMap, input.Phone) // remove used OTP
 	c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
 }
 
