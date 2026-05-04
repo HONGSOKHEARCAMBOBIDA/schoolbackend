@@ -14,7 +14,16 @@ func SetupRoutes(r *gin.Engine) {
 	r.POST("/register", controllers.Register)
 	r.GET("/getrole", controllers.GetRole)
 	r.Static("/images", "./public/images")
-
+	r.GET("/api/studentenrollreport", controllers.GetStudentEnrollmentReport)
+	r.GET("/api/studentgenderreport", controllers.GetGenderStatsReport)
+	r.GET("/api/studentbyaddress", controllers.GetStudentByAddress)
+	r.GET("/api/studentpoor", controllers.Detailedlistofpoorstudentsbyclassandacademicyear)
+	r.GET("/api/Numberofpoorstudentsbyclassandgender", controllers.Numberofpoorstudentsbyclassandgender)
+	r.GET("/api/NumberOfPoorStudentsByProvinceDistrict", controllers.NumberOfPoorStudentsByProvinceDistrict)
+	r.GET("/api/PoorVsNonPoorStudentsComparisonByYear", controllers.PoorVsNonPoorStudentsComparisonByYear)
+	r.GET("/api/TotalSummaryStudentsTeachersClassesAcademicYears", controllers.TotalSummaryStudentsTeachersClassesAcademicYears)
+	r.GET("/api/StudentSubjectExamScoresByAcademicYear", controllers.StudentSubjectExamScoresByAcademicYear)
+	r.GET("/api/DetailedDisabledStudentsByDisabilityType", controllers.DetailedDisabledStudentsByDisabilityType)
 	// Protected routes
 	auth := r.Group("/")
 	auth.Use(middleware.AuthMiddleware())

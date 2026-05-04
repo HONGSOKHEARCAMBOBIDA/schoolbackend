@@ -63,6 +63,13 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	var permissions []models.Permission
+
+	if err := config.DB.Table("permissions p").Select("p.id AS id,p.name AS name,p.display_name AS display_name").
+		Joins("JOIN role_has_permissions rhp ON rhp.permission_id = p.id").Where("rhp.role_id =?", user.RoleID).Scan(&permissions).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found permission"})
+	}
+
 	// Check password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"message": "Invalid phone or password"})
@@ -121,12 +128,13 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Logged in successfully",
 		"user": gin.H{
-			"id":        user.ID,
-			"name":      user.Name,
-			"phone":     user.Phone,
-			"profile":   user.Image,
-			"role_id":   user.RoleID,
-			"role_name": role.Name,
+			"id":         user.ID,
+			"name":       user.Name,
+			"phone":      user.Phone,
+			"profile":    user.Image,
+			"role_id":    user.RoleID,
+			"role_name":  role.Name,
+			"permission": permissions,
 		},
 		"token": tokenStr,
 	})

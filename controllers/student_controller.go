@@ -576,3 +576,349 @@ func Getstudent(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"students": students})
 	}
 }
+
+func GetStudentEnrollmentReport(c *gin.Context) {
+	var result []map[string]interface{}
+
+	err := config.DB.Table("student_classes sc").
+		Select(`
+			ay.year_name AS academic_year,
+			c.name AS class_name,
+			COUNT(sc.id) AS total_students,
+			SUM(CASE WHEN s.gender = 1 THEN 1 ELSE 0 END) AS male,
+			SUM(CASE WHEN s.gender = 2 THEN 1 ELSE 0 END) AS female,
+			SUM(CASE WHEN s.is_poor = 1 THEN 1 ELSE 0 END) AS poor_students,
+			SUM(CASE WHEN s.is_disability = 1 THEN 1 ELSE 0 END) AS disabled_students
+		`).
+		Joins("JOIN students s ON s.id = sc.student_id").
+		Joins("JOIN classes c ON c.id = sc.class_id").
+		Joins("JOIN academic_years ay ON ay.id = sc.academic_year_id").
+		Where("sc.is_active = ?", 1).
+		Group("ay.id, ay.year_name, c.id, c.name").
+		Order("ay.year_name, c.name").
+		Scan(&result).Error
+
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+func GetGenderStatsReport(c *gin.Context) {
+	var result []map[string]interface{}
+
+	query := `SELECT
+    ay.year_name AS academic_year,
+    c.name AS class_name,
+    COUNT(sc.id) AS total_students,
+
+    SUM(CASE WHEN s.gender = 1 THEN 1 ELSE 0 END) AS male,
+    SUM(CASE WHEN s.gender = 2 THEN 1 ELSE 0 END) AS female,
+
+    ROUND(
+        SUM(CASE WHEN s.gender = 1 THEN 1 ELSE 0 END) * 100.0 
+        / NULLIF(COUNT(sc.id), 0), 1
+    ) AS male_pct,
+
+    ROUND(
+        SUM(CASE WHEN s.gender = 2 THEN 1 ELSE 0 END) * 100.0 
+        / NULLIF(COUNT(sc.id), 0), 1
+    ) AS female_pct
+
+FROM student_classes sc
+JOIN students s        ON s.id  = sc.student_id
+JOIN classes c         ON c.id  = sc.class_id
+JOIN academic_years ay ON ay.id = sc.academic_year_id
+
+WHERE sc.is_active = 1
+
+GROUP BY ay.id, ay.year_name, c.id, c.name
+ORDER BY ay.year_name, c.name;`
+
+	err := config.DB.Raw(query).Scan(&result).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+func GetStudentByAddress(c *gin.Context) {
+	var result []map[string]interface{}
+
+	query := `SELECT
+    p.name                                              AS province,
+    d.name                                              AS district,
+    COUNT(sc.id)                                        AS total_students,
+    SUM(CASE WHEN s.gender = 1 THEN 1 ELSE 0 END)      AS male,
+    SUM(CASE WHEN s.gender = 2 THEN 1 ELSE 0 END)      AS female,
+    ROUND(
+        SUM(CASE WHEN s.gender = 2 THEN 1 ELSE 0 END)
+        * 100.0 / COUNT(sc.id), 1
+    )                                                   AS female_pct
+FROM student_classes sc
+JOIN students s        ON s.id       = sc.student_id
+JOIN academic_years ay ON ay.id      = sc.academic_year_id
+JOIN villages v        ON v.id       = s.village_id
+JOIN communes co       ON co.id      = v.commune_id
+JOIN districts d       ON d.id       = co.district_id
+JOIN provinces p       ON p.id       = d.province_id
+WHERE sc.is_active = 1
+  AND ay.is_active  = 1
+GROUP BY p.id, p.name, d.id, d.name
+ORDER BY p.name, d.name;`
+
+	err := config.DB.Raw(query).Scan(&result).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+func Detailedlistofpoorstudentsbyclassandacademicyear(c *gin.Context) {
+	var result []map[string]interface{}
+
+	query := `-- បញ្ជីសិស្សក្រីក្រលម្អិតតាមថ្នាក់ និងឆ្នាំសិក្សា
+SELECT
+    ay.year_name                                            AS academic_year,
+    c.name                                                  AS class_name,
+    s.code                                                  AS student_code,
+    s.name                                                  AS student_name,
+    CASE WHEN s.gender = 1 THEN 'ប្រុស' ELSE 'ស្រី' END    AS gender,
+    s.dob                                                   AS date_of_birth,
+    s.phone                                                 AS phone,
+    s.father_name                                           AS father_name,
+    s.mother_name                                           AS mother_name,
+    s.fother_occupation                                     AS father_occupation,
+    s.mothe_occupation                                      AS mother_occupation,
+    p.name                                                  AS province,
+    d.name                                                  AS district,
+    co.name                                                 AS commune,
+    v.name                                                  AS village
+FROM students s
+JOIN student_classes sc ON sc.student_id    = s.id
+JOIN classes c          ON c.id             = sc.class_id
+JOIN academic_years ay  ON ay.id            = sc.academic_year_id
+JOIN villages v         ON v.id             = s.village_id
+JOIN communes co        ON co.id            = v.commune_id
+JOIN districts d        ON d.id             = co.district_id
+JOIN provinces p        ON p.id             = d.province_id
+WHERE s.is_poor     = 1
+  AND sc.is_active  = 1
+  AND ay.is_active  = 1
+ORDER BY c.name, s.name;`
+
+	err := config.DB.Raw(query).Scan(&result).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+func Numberofpoorstudentsbyclassandgender(c *gin.Context) {
+	var result []map[string]interface{}
+
+	query := `SELECT
+    ay.year_name                                            AS academic_year,
+    c.name                                                  AS class_name,
+    COUNT(s.id)                                             AS total_poor,
+    SUM(CASE WHEN s.gender = 1 THEN 1 ELSE 0 END)          AS male_poor,
+    SUM(CASE WHEN s.gender = 2 THEN 1 ELSE 0 END)          AS female_poor,
+    ROUND(
+        COUNT(s.id) * 100.0 /
+        (SELECT COUNT(*) FROM student_classes sc2
+         JOIN academic_years ay2 ON ay2.id = sc2.academic_year_id
+         WHERE sc2.class_id = sc.class_id
+           AND sc2.is_active = 1
+           AND ay2.is_active = 1), 1
+    )                                                       AS poor_pct_in_class
+FROM students s
+JOIN student_classes sc ON sc.student_id    = s.id
+JOIN classes c          ON c.id             = sc.class_id
+JOIN academic_years ay  ON ay.id            = sc.academic_year_id
+WHERE s.is_poor     = 1
+  AND sc.is_active  = 1
+  AND ay.is_active  = 1
+GROUP BY ay.id, ay.year_name, c.id, c.name, sc.class_id
+ORDER BY ay.year_name, c.name;`
+
+	err := config.DB.Raw(query).Scan(&result).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+func NumberOfPoorStudentsByProvinceDistrict(c *gin.Context) {
+	var result []map[string]interface{}
+
+	query := `SELECT
+    p.name                                                  AS province,
+    d.name                                                  AS district,
+    COUNT(s.id)                                             AS total_poor_students,
+    SUM(CASE WHEN s.gender = 1 THEN 1 ELSE 0 END)          AS male_poor,
+    SUM(CASE WHEN s.gender = 2 THEN 1 ELSE 0 END)          AS female_poor
+FROM students s
+JOIN student_classes sc ON sc.student_id    = s.id
+JOIN academic_years ay  ON ay.id            = sc.academic_year_id
+JOIN villages v         ON v.id             = s.village_id
+JOIN communes co        ON co.id            = v.commune_id
+JOIN districts d        ON d.id             = co.district_id
+JOIN provinces p        ON p.id             = d.province_id
+WHERE s.is_poor     = 1
+  AND sc.is_active  = 1
+  AND ay.is_active  = 1
+GROUP BY p.id, p.name, d.id, d.name
+ORDER BY p.name, d.name;`
+
+	err := config.DB.Raw(query).Scan(&result).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+func PoorVsNonPoorStudentsComparisonByYear(c *gin.Context) {
+	var result []map[string]interface{}
+
+	query := `SELECT
+    ay.year_name                                            AS academic_year,
+    COUNT(s.id)                                             AS total_students,
+    SUM(CASE WHEN s.is_poor = 1 THEN 1 ELSE 0 END)         AS poor_students,
+    SUM(CASE WHEN s.is_poor = 0 THEN 1 ELSE 0 END)         AS non_poor_students,
+    ROUND(
+        SUM(CASE WHEN s.is_poor = 1 THEN 1 ELSE 0 END)
+        * 100.0 / COUNT(s.id), 1
+    )                                                       AS poor_pct
+FROM students s
+JOIN student_classes sc ON sc.student_id    = s.id
+JOIN academic_years ay  ON ay.id            = sc.academic_year_id
+WHERE sc.is_active  = 1
+GROUP BY ay.id, ay.year_name
+ORDER BY ay.year_name;`
+
+	err := config.DB.Raw(query).Scan(&result).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+func TotalSummaryStudentsTeachersClassesAcademicYears(c *gin.Context) {
+	var result []map[string]interface{}
+
+	query := `SELECT
+  (SELECT COUNT(*) FROM students WHERE is_active = 1)              AS total_students,
+  (SELECT COUNT(*) FROM students WHERE is_active = 1
+     AND gender = 1)                                               AS male_students,
+  (SELECT COUNT(*) FROM students WHERE is_active = 1
+     AND gender = 2)                                               AS female_students,
+  (SELECT COUNT(*) FROM students WHERE is_active = 1
+     AND is_poor = 1)                                              AS poor_students,
+  (SELECT COUNT(*) FROM students WHERE is_active = 1
+     AND is_disability = 1)                                        AS disabled_students,
+  (SELECT COUNT(*) FROM users WHERE role_id IN
+     (SELECT id FROM roles WHERE name LIKE '%គ្រូបង្រៀន%'))           AS total_teachers,
+  (SELECT COUNT(*) FROM classes WHERE is_active = 1)              AS total_classes,
+  (SELECT COUNT(*) FROM academic_years WHERE is_active = 1
+     ) AS year_name  `
+
+	err := config.DB.Raw(query).Scan(&result).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+func StudentSubjectExamScoresByAcademicYear(c *gin.Context) {
+	var result []map[string]interface{}
+
+	query := `SELECT
+    s.code                          AS student_code,
+    s.name                          AS student_name,
+    c.name                          AS class_name,
+    ay.year_name                    AS academic_year,
+    sub.name                        AS subject,
+    te.name                         AS exam_type,
+    ec.name                         AS component,
+    sc.mark                         AS score,
+    sc.exam_date
+FROM scores sc
+JOIN student_classes stcl   ON stcl.id          = sc.student_class_id
+JOIN students s             ON s.id             = stcl.student_id
+JOIN classes c              ON c.id             = stcl.class_id
+JOIN academic_years ay      ON ay.id            = stcl.academic_year_id
+JOIN exam_components ec     ON ec.id            = sc.component_id
+JOIN class_subjects cs      ON cs.id            = ec.class_subject_id
+JOIN subjects sub           ON sub.id           = cs.subject_id
+JOIN type_exams te          ON te.id            = sc.type_exam_id
+WHERE ay.is_active = 1
+ORDER BY s.name, sub.name, sc.exam_date;`
+
+	err := config.DB.Raw(query).Scan(&result).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, result)
+}
+
+func DetailedDisabledStudentsByDisabilityType(c *gin.Context) {
+	var result []map[string]interface{}
+
+	query := `-- បញ្ជីសិស្សពិការលម្អិតតាមប្រភេទពិការ
+SELECT
+    s.code                                                  AS student_code,
+    s.name                                                  AS student_name,
+    CASE WHEN s.gender = 1 THEN 'ប្រុស' ELSE 'ស្រី' END    AS gender,
+    s.dob                                                   AS date_of_birth,
+    s.phone                                                 AS phone,
+    s.father_name                                           AS father_name,
+    s.mother_name                                           AS mother_name,
+    dr.name                                                 AS disability_type,
+    dr.description                                          AS disability_description,
+    c.name                                                  AS class_name,
+    ay.year_name                                            AS academic_year,
+    p.name                                                  AS province,
+    d.name                                                  AS district,
+    co.name                                                 AS commune,
+    v.name                                                  AS village
+FROM students s
+JOIN student_disabilities sd    ON sd.student_id    = s.id
+JOIN disability_res dr          ON dr.id            = sd.disability_id
+JOIN student_classes sc         ON sc.student_id    = s.id
+JOIN classes c                  ON c.id             = sc.class_id
+JOIN academic_years ay          ON ay.id            = sc.academic_year_id
+JOIN villages v                 ON v.id             = s.village_id
+JOIN communes co                ON co.id            = v.commune_id
+JOIN districts d                ON d.id             = co.district_id
+JOIN provinces p                ON p.id             = d.province_id
+WHERE s.is_disability   = 1
+  AND sc.is_active      = 1
+  AND ay.is_active      = 1
+ORDER BY dr.name, s.name;`
+
+	err := config.DB.Raw(query).Scan(&result).Error
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, result)
+}
