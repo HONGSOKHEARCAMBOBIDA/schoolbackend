@@ -35,12 +35,21 @@ func CreateRole(c *gin.Context) {
 
 }
 func GetRole(c *gin.Context) {
-	var role []models.Role
-	if err := config.DB.Find(&role).Error; err != nil {
+	var roles []models.Role
+
+	err := config.DB.
+		Table("roles").
+		Select("roles.*, COUNT(users.id) as count_user").
+		Joins("LEFT JOIN users ON users.role_id = roles.id").
+		Group("roles.id").
+		Scan(&roles).Error
+
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, role)
+
+	c.JSON(http.StatusOK, roles)
 }
 func UpdateRole(c *gin.Context) {
 	id := c.Param("id")
