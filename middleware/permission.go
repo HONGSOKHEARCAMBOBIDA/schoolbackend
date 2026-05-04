@@ -83,6 +83,33 @@ func PermissionMiddleware(requiredPermissions ...string) gin.HandlerFunc {
 		}
 		roleID := uint(roleIDFloat)
 		c.Set("userID", roleID)
+		// Extract user_id from JWT claims
+		userIDFloat, ok := claims["user_id"].(float64)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "User ID not found in token"})
+			c.Abort()
+			return
+		}
+		userID := uint(userIDFloat)
+
+		// Check if user is active
+		var user models.User
+		err = config.DB.Select("is_active").First(&user, userID).Error
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusUnauthorized, gin.H{"message": "User not found"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "Database error"})
+			}
+			c.Abort()
+			return
+		}
+
+		if user.IsActive == 0 {
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "Your account has been disabled"})
+			c.Abort()
+			return
+		}
 		// Query DB: Load role with permissions
 		var role models.Role
 		err = config.DB.Preload("Permissions").First(&role, roleID).Error
